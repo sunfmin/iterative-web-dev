@@ -1,17 +1,11 @@
 # iterative-web-dev
 
-A Windsurf skill for iterative web development with AI agents.
+A AI skill for iterative web development with AI agents.
 
 ## Installation
 
 ```bash
-npx skills add iterative-web-dev
-```
-
-Or install from GitHub:
-
-```bash
-npx skills add https://github.com/YOUR_USERNAME/iterative-web-dev
+npx skills add https://github.com/sunfmin/iterative-web-dev
 ```
 
 ## Overview
