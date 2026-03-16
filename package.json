@@ -1,0 +1,20 @@
+{
+  "name": "iterative-web-dev",
+  "version": "1.0.0",
+  "description": "Iterative web development workflow for AI agents with incremental progress, scoped features, and E2E verification",
+  "keywords": [
+    "windsurf",
+    "skill",
+    "ai-agent",
+    "web-development",
+    "e2e-testing",
+    "playwright",
+    "incremental-development"
+  ],
+  "author": "",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": ""
+  }
+}
