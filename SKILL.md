@@ -14,13 +14,15 @@ This skill provides a complete workflow for AI agents working on long-running de
 3. **Git discipline** — Commit after every completed feature. Never leave uncommitted work.
 4. **Clean handoffs** — Every session ends with committed work and updated progress notes.
 5. **Test before build** — Verify existing features work before implementing new ones.
+6. **Autonomous execution** — Make all decisions yourself. Never stop to ask the human. The human may be asleep.
+7. **Subagent per feature** — Each feature is implemented in its own subagent for isolation and parallelism safety.
 
 ## When to Use Each Workflow
 
 | Workflow | Use When |
 |----------|----------|
 | **init-scope** | Starting a new scope, switching scopes, or setting up project structure |
-| **continue** | Every session after init — picking up work and implementing features |
+| **continue** | Every session after init — picking up work and implementing ALL remaining features |
 | **e2e-screenshot-verification** | Verifying features visually, reviewing UI, catching UX issues |
 
 ---
@@ -82,9 +84,11 @@ project-root/
 
 ---
 
-## Workflow: Continue Session
+## Workflow: Continue Session (Autonomous Feature Loop)
 
-Use this for every session after initialization. Picks up where the last session left off.
+This is the main workflow. It runs ALL remaining features to completion without stopping.
+
+**IMPORTANT: You MUST keep looping until every feature in `feature_list.json` has `"passes": true`. Do NOT stop after one feature. Do NOT ask the human what to do next. The human may be asleep.**
 
 ### Session Startup Sequence
 
@@ -103,32 +107,122 @@ Use this for every session after initialization. Picks up where the last session
 
 3. **Verify existing features** — Run E2E tests to check for regressions
 
-4. **Pick next feature** — Highest priority with `"passes": false`
+### Autonomous Feature Loop
 
-5. **Implement feature** — Clean, production-quality code
+After startup, enter the **feature loop**. This loop runs until ALL features pass:
 
-6. **Test with screenshots** — Use E2E verification workflow
+```
+WHILE there are features with "passes": false in feature_list.json:
+    1. Read feature_list.json to find next incomplete feature (highest priority first)
+    2. Launch a SUBAGENT to implement that feature
+    3. After subagent completes, run E2E tests to verify
+    4. If tests pass: update feature_list.json ("passes": true), commit, update progress.txt
+    5. If tests fail: read errors, fix issues yourself (launch another subagent if needed), re-test
+    6. CONTINUE to next feature — do NOT stop
+END WHILE
+```
 
-7. **Update feature_list.json** — Only change `"passes": false` to `"passes": true`
+### Launching Feature Subagents (Claude Code)
 
-8. **Update progress.txt**
+For each feature, use the **Agent tool** to launch a subagent. This keeps each feature's work isolated and prevents context window overflow.
+
+**Subagent prompt template:**
+
+```
+You are implementing a feature for a web application. Work autonomously — do NOT ask questions, make your best judgment on all decisions.
+
+## Project Context
+- Working directory: {pwd}
+- Active scope: {scope from .active-scope}
+
+## Feature to Implement
+- ID: {id}
+- Description: {description}
+- Category: {category}
+- Priority: {priority}
+- Test Steps:
+{steps as bullet list}
+
+## Instructions
+1. Read the relevant source files to understand the current codebase
+2. Implement the feature following existing code patterns
+3. Write or update E2E tests in the Playwright test files
+4. Follow the screenshot naming convention: {scope}-feature-{id}-step{N}-{description}.png
+5. Make sure the implementation is complete and production-quality
+6. Do NOT commit — the parent agent will handle commits after verification
+
+## Key Rules
+- Follow existing code patterns and architecture
+- Keep changes focused on this feature only
+- Do not break other features
+- Write clean, production-ready code
+- Keep files under 300 lines — refactor if needed
+- Use data-testid attributes for test selectors
+- Make all decisions yourself, never ask for human input
+```
+
+**How to launch the subagent:**
+
+Use the Agent tool with `subagent_type: "general-purpose"`. Example:
+
+```
+Agent tool call:
+  description: "Implement feature #3"
+  prompt: [filled template above]
+```
+
+### After Each Subagent Completes
+
+1. **Run E2E tests** to verify the feature:
+   ```bash
+   npx playwright test
    ```
-   ## Session N — [DATE]
-   ### What was done:
-   - Implemented feature #X: [description]
-   
-   ### Current state:
-   - Features passing: X / N
-   - Next priority: Feature #Y
-   ```
 
-9. **Commit all progress**
+2. **Review results:**
+   - If tests pass: update `feature_list.json` (`"passes": true`), commit, log progress
+   - If tests fail: read the errors, fix them yourself or launch another subagent, re-test
+
+3. **Commit the feature:**
    ```bash
    git add -A
-   git commit -m "feat: [description]"
+   git commit -m "feat: [description]
+
+   - Implemented feature #[id]: [description]
+   - Tests: [X] passing / [N] total"
    ```
 
-10. **Final verification** — All tests pass, clean working tree
+4. **Update progress.txt** with session entry
+
+5. **Loop back** — pick the next incomplete feature and repeat
+
+### Decision Making Guidelines
+
+Since the human may be asleep, follow these rules for autonomous decisions:
+
+| Situation | Decision |
+|-----------|----------|
+| Ambiguous spec | Choose the simplest reasonable interpretation |
+| Multiple implementation approaches | Pick the one matching existing patterns |
+| Test is flaky | Add proper waits/retries, don't skip the test |
+| Feature seems too large | Break into sub-tasks within the subagent |
+| Dependency conflict | Use the version compatible with existing packages |
+| Build error | Read the error, fix it, rebuild |
+| Port conflict | Kill the conflicting process and restart |
+| Database issue | Reset/reseed the database |
+| Feature blocked by another | Skip to next feature, come back later |
+| Unclear UI design | Follow existing UI patterns in the app |
+
+### Session End
+
+Only end the session when:
+- **ALL features have `"passes": true`**, OR
+- A truly unrecoverable error occurs (hardware failure, missing credentials, etc.)
+
+Before ending:
+1. Run full E2E test suite one final time
+2. Ensure clean git status (`git status` shows clean working tree)
+3. Update `progress.txt` with final summary
+4. Commit any remaining changes
 
 ---
 
@@ -214,7 +308,7 @@ Examples:
 - NEVER remove or edit feature descriptions or test steps
 - NEVER weaken or delete tests
 - ONLY change `"passes": false` to `"passes": true` after verification
-- Work on features in priority order (high → medium → low)
+- Work on features in priority order (high -> medium -> low)
 
 ### Code Quality
 - Write production-ready code, not prototypes
@@ -227,6 +321,13 @@ Examples:
 - `progress.txt` updated with session summary
 - No debug code or console.logs left in
 - Codebase in clean, working state
+
+### Autonomous Operation
+- NEVER stop to ask the human a question
+- NEVER wait for human approval
+- Make reasonable decisions based on existing patterns
+- If blocked, try alternative approaches before giving up
+- Keep working until ALL features are complete
 
 ---
 

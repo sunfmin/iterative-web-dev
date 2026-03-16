@@ -1,6 +1,8 @@
 # Continue Workflow — Full Details
 
-This is the primary workflow for every session after initialization.
+This is the primary workflow for every session after initialization. It runs **autonomously until ALL features are complete**.
+
+**CRITICAL: Do NOT stop after implementing one feature. Keep looping until every feature in `feature_list.json` has `"passes": true`. The human may be asleep — make all decisions yourself.**
 
 ## Session Startup Sequence
 
@@ -56,128 +58,94 @@ If Playwright is not set up yet:
 2. Test basic functionality (login, navigation)
 3. If something is broken, **fix it first**
 
-### Step 4: Pick the Next Feature
+### Step 4: Enter the Autonomous Feature Loop
+
+**This is the core loop. Do NOT exit until all features pass.**
+
+```
+WHILE there are features with "passes": false in feature_list.json:
+    1. Read feature_list.json
+    2. Find the highest-priority feature with "passes": false
+    3. Launch a SUBAGENT to implement that feature
+    4. Verify with E2E tests
+    5. If pass: mark as passing, commit, log progress
+    6. If fail: fix and re-test (do NOT skip)
+    7. LOOP BACK to step 1
+END WHILE
+```
+
+#### 4a: Pick the Next Feature
 
 From `feature_list.json`, find the **highest-priority feature** that has `"passes": false`.
 
-- Work on features in order of priority (high → medium → low)
+- Work on features in order of priority (high -> medium -> low)
 - Within the same priority, work in the order they appear in the file
-- Pick **exactly ONE** feature to work on
+- If a feature is blocked, skip it and come back later
 
-Announce which feature you're working on:
-> "Working on feature #[id]: [description]"
+#### 4b: Launch a Subagent for the Feature
 
-### Step 5: Implement the Feature
+Use the **Agent tool** (Claude Code) to launch a subagent for each feature. This isolates each feature's implementation and prevents context window overflow.
 
-Follow these principles:
+**Subagent prompt template:**
 
-- **Write clean, production-quality code** — No shortcuts, no TODOs left behind
-- **Follow existing code patterns** — Match the style and architecture already in place
-- **Keep changes focused** — Only modify what's needed for this feature
-- **Don't break other features** — If your change affects other code, verify it still works
+```
+You are implementing a feature for a web application. Work autonomously — do NOT ask questions, make your best judgment on all decisions.
 
-#### Code Modularity and Refactoring
+## Project Context
+- Working directory: {pwd}
+- Active scope: {scope from .active-scope}
 
-When working with source files, **actively refactor large files**:
+## Feature to Implement
+- ID: {id}
+- Description: {description}
+- Category: {category}
+- Priority: {priority}
+- Test Steps:
+{steps as bullet list}
 
-**File Size Guidelines:**
-- If a file exceeds **300 lines**, consider splitting it
-- If a component has **multiple responsibilities**, extract them
-- If logic is **reused or could be reused**, extract it
+## Instructions
+1. Read the relevant source files to understand the current codebase
+2. Read the spec.md file for full project context
+3. Implement the feature following existing code patterns
+4. Write or update E2E tests in the Playwright test files
+5. Follow the screenshot naming convention: {scope}-feature-{id}-step{N}-{description}.png
+6. Make sure the implementation is complete and production-quality
+7. Do NOT commit — the parent agent will handle commits after verification
 
-**Refactoring Actions:**
-1. **Extract reusable hooks** — `useXxx.ts`
-2. **Extract API functions** — `api/xxxService.ts`
-3. **Extract types** — `types/xxx.ts`
-4. **Extract utilities** — `utils/xxx.ts`
-5. **Extract sub-components** — Smaller, focused components
-
-```bash
-# Check file sizes before implementing
-wc -l src/**/*.tsx src/**/*.ts | sort -n | tail -20
+## Key Rules
+- Follow existing code patterns and architecture
+- Keep changes focused on this feature only
+- Do not break other features
+- Write clean, production-ready code
+- Keep files under 300 lines — refactor if needed
+- Use data-testid attributes for test selectors
+- Make all decisions yourself, never ask for human input
 ```
 
-### Step 6: Test the Feature with Screenshots
+#### 4c: Verify the Feature
 
-Test using **real verification with screenshots**, not just code review.
+After the subagent completes, run E2E tests:
 
 ```bash
-# Run Playwright tests for the feature
-npx playwright test --grep "feature-name" 
-
-# Or run all tests
 npx playwright test
 ```
 
-#### List and Review Screenshots
+**If tests pass:**
+1. Update `feature_list.json` — change `"passes": false` to `"passes": true`
+2. Commit (see Step 5)
+3. Update `progress.txt` (see Step 6)
+4. Continue to next feature
 
-```bash
-# Find screenshots from the current scope and feature
-# Replace {scope} with active scope name (e.g., "auth", "core")
-find e2e/screenshots -name "{scope}-feature-{id}-*.png" -type f | sort
+**If tests fail:**
+1. Read the error output carefully
+2. Fix the issue yourself or launch another subagent to fix it
+3. Re-run tests
+4. Repeat until tests pass
+5. Do NOT skip a failing feature — fix it
 
-# Check test-results for failure screenshots
-find test-results -name "*.png" -type f | sort
-```
+### Step 5: Commit After Each Feature
 
-**IMPORTANT**: Focus on screenshots matching the current scope and feature ID pattern: `{scope}-feature-{id}-*.png`
-
-#### Evaluate Each Screenshot
-
-For each screenshot, check:
-1. **Layout** — Does content fit? Any overflow or clipping?
-2. **Spacing** — Appropriate padding/margin?
-3. **Touch targets** — Buttons/inputs large enough (min 44px)?
-4. **Visual hierarchy** — Most important action obvious?
-5. **Error states** — Error messages visible, red, associated with input?
-6. **Data loading** — Shows real data, not empty/loading states?
-7. **Typography** — Text readable? Labels and values distinguishable?
-8. **Consistency** — Similar screens use same patterns?
-
-#### Fix Issues Found
-
-If screenshots reveal UX issues:
-1. Locate the relevant component
-2. Make minimal CSS/layout changes
-3. Prefer Tailwind utilities over custom CSS
-4. Keep all `data-testid` attributes intact
-5. Re-run tests to capture updated screenshots
-6. Review again until all issues resolved
-
-### Step 7: Update `feature_list.json`
-
-If the feature passes all tests:
-```json
-"passes": true
-```
-
-**CRITICAL RULES:**
-- NEVER remove or edit feature descriptions or test steps
-- NEVER change a passing feature back to failing (unless genuine regression)
-- ONLY change the `"passes"` field from `false` to `true`
-
-### Step 8: Update `progress.txt`
-
-Append a new session entry:
-
-```
-## Session N — [DATE]
-### What was done:
-- Implemented feature #X: [description]
-- Fixed [any bugs]
-
-### Current state:
-- Features passing: X / N
-- App status: [running/stable/has issues]
-- Next priority: Feature #Y — [description]
-
-### Known issues:
-- [any issues or blockers]
-```
-
-### Step 9: Commit All Progress (Single Commit)
-
-Commit everything together:
+Commit everything together after each successful feature:
 
 ```bash
 git add -A
@@ -188,21 +156,76 @@ git commit -m "feat: [brief description]
 - Tests: [X] passing / [N] total"
 ```
 
-**Important:** All changes go in ONE commit.
+**Important:** All changes for one feature go in ONE commit.
 
-### Step 10: Final Verification (MANDATORY)
+### Step 6: Update progress.txt After Each Feature
 
-Before finishing, verify:
+Append progress after each feature:
 
-1. **All tests still pass** — Run the full test suite one more time
-2. **No uncommitted changes** — `git status` should show clean working tree
-3. **Codebase is clean** — No half-implemented features, no debug code, no broken imports
+```
+## Feature #[id] completed — [DATE]
+### What was done:
+- Implemented feature #[id]: [description]
+- [any fixes or adjustments]
+
+### Current state:
+- Features passing: X / N
+- Next priority: Feature #Y — [description]
+```
+
+### Step 7: Loop Back
+
+**Go back to Step 4 and pick the next feature. Do NOT stop.**
+
+### Step 8: Final Verification (When ALL Features Pass)
+
+Only when every feature has `"passes": true`:
+
+1. **Run full test suite** one final time
+   ```bash
+   npx playwright test
+   ```
+2. **Verify clean git status**
+   ```bash
+   git status
+   ```
+3. **Update progress.txt** with final session summary:
+   ```
+   ## Session Complete — [DATE]
+   ### Summary:
+   - All [N] features implemented and passing
+   - Full test suite green
+   - Codebase clean and production-ready
+   ```
+4. **Final commit** if needed
+
+## Decision Making (Autonomous Mode)
+
+Since the human may be asleep, follow these rules:
+
+| Situation | Decision |
+|-----------|----------|
+| Ambiguous spec | Choose the simplest reasonable interpretation |
+| Multiple approaches | Pick the one matching existing patterns |
+| Flaky test | Add proper waits/retries, don't skip |
+| Feature too large | Break into sub-tasks within the subagent |
+| Dependency conflict | Use version compatible with existing packages |
+| Build error | Read error, fix it, rebuild |
+| Port conflict | Kill conflicting process, restart |
+| Database issue | Reset/reseed the database |
+| Feature blocked | Skip to next, come back later |
+| Unclear UI design | Follow existing UI patterns in the app |
+| Missing dependency | Install it |
+| Unclear file structure | Follow existing project conventions |
 
 ## What NOT To Do
 
+- Don't stop after one feature — keep going until ALL pass
+- Don't ask the human what to do — decide yourself
 - Don't try to one-shot the entire app
 - Don't declare the project "done" prematurely — check feature_list.json
 - Don't leave the codebase in a broken state
-- Don't skip testing — verify features end-to-end as a user would
+- Don't skip testing — verify features end-to-end
 - Don't modify feature descriptions or test steps in feature_list.json
 - Don't implement features out of priority order without good reason
+- Don't wait for human approval between features

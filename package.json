@@ -4,12 +4,15 @@
   "description": "Iterative web development workflow for AI agents with incremental progress, scoped features, and E2E verification",
   "keywords": [
     "windsurf",
+    "claude-code",
     "skill",
     "ai-agent",
     "web-development",
     "e2e-testing",
     "playwright",
-    "incremental-development"
+    "incremental-development",
+    "subagent",
+    "autonomous"
   ],
   "author": "",
   "license": "MIT",
