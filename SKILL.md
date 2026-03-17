@@ -17,6 +17,8 @@ This skill provides a complete workflow for AI agents working on long-running de
 6. **Autonomous execution** — Make all decisions yourself. Never stop to ask the human. The human may be asleep.
 7. **Subagent per feature** — Each feature is implemented in its own subagent for isolation and parallelism safety.
 8. **Refactor and unit test** — Actively extract logic into testable modules and write unit tests. Keep code reusable and maintainable.
+9. **Visual quality is non-negotiable** — Every feature MUST be verified via screenshots. A feature that works but looks bad is NOT complete. Screenshots are the primary evidence of correct implementation.
+10. **Design with intention** — Follow the `/frontend-design` skill principles: commit to a bold aesthetic direction, avoid generic AI aesthetics, and create interfaces that are distinctive and production-grade. Every UI decision should be intentional, not default.
 
 ## When to Use Each Workflow
 
@@ -115,7 +117,7 @@ After startup, enter the **feature loop**. This loop runs until ALL features pas
 WHILE there are features with "passes": false in feature_list.json:
     1. Read feature_list.json to find next incomplete feature (highest priority first)
     2. Launch a SUBAGENT to implement, test, verify screenshots, and commit
-    3. After subagent completes, confirm feature_list.json was updated
+    3. After subagent completes, VERIFY screenshots and quality (see below)
     4. CONTINUE to next feature — do NOT stop
 END WHILE
 ```
@@ -145,11 +147,45 @@ You are implementing a feature for a web application. Work autonomously — do N
 
 ### Phase 1: Implement
 1. Read the relevant source files to understand the current codebase
-2. Implement the feature following existing code patterns
-3. Make sure the implementation is complete and production-quality
+2. Read the spec.md file for full project context
+3. Implement the feature following existing code patterns
+4. Make sure the implementation is complete and production-quality
+
+### Phase 1.5: UX Quality Checklist
+
+Before moving on, verify your implementation meets these UX standards.
+See references/ux-standards.md for full details.
+
+**Required for ALL features:**
+- [ ] Loading states — Show skeleton/spinner while data loads (server components can use Suspense)
+- [ ] Empty states — Show icon + helpful message + CTA when no data exists
+- [ ] Error states — Show clear error messages with recovery actions
+- [ ] Responsive — Verify layout works at 375px, 768px, 1280px widths
+- [ ] Accessibility — aria-labels on interactive elements, keyboard navigable, focus rings visible
+
+**Required for form features:**
+- [ ] Field grouping — Related fields grouped with section headers/dividers
+- [ ] Help text — Placeholder text or descriptions for non-obvious fields
+- [ ] Validation feedback — Inline errors below fields with red borders, clearing on fix
+- [ ] Submit feedback — Button shows loading state ("Saving..."), disables during submit
+
+**Required for list/table features:**
+- [ ] Column alignment — Numbers right-aligned, text left-aligned
+- [ ] Hover states — Row highlighting on hover
+- [ ] Empty search results — "No results for 'X'" with clear filters CTA
+- [ ] Mobile layout — Table scrolls horizontally or collapses to cards on small screens
+
+**Required for all UI work (follow /frontend-design principles):**
+- [ ] Typography — Use distinctive, characterful fonts. Avoid generic defaults (Inter, Arial, system fonts)
+- [ ] Color & theme — Commit to a cohesive aesthetic. Dominant colors with sharp accents
+- [ ] Spatial composition — Intentional layout. Generous negative space OR controlled density
+- [ ] Visual details — Atmosphere and depth. Subtle shadows, borders, or textures where appropriate
+- [ ] Micro-interactions — Hover transitions (150-200ms), focus effects, button feedback
+
+If any checkbox fails, fix it before proceeding.
 
 ### Phase 2: Refactor & Unit Test
-4. Review the code you just wrote and any code you touched. Actively refactor for:
+5. Review the code you just wrote and any code you touched. Actively refactor for:
    - **Testability** — Extract pure functions and logic out of UI components and handlers.
      Move business logic, validation, data transformation, and state calculations into
      separate utility/service modules that can be unit tested without DOM or network.
@@ -157,15 +193,25 @@ You are implementing a feature for a web application. Work autonomously — do N
      extract shared helpers. Don't duplicate what already exists elsewhere in the codebase.
    - **Maintainability** — Keep functions small and single-purpose. Name things clearly.
      Split large files. Prefer composition over deep nesting.
-5. Write unit tests for all extracted logic — pure functions, validators, transformers,
+6. Write unit tests for all extracted logic — pure functions, validators, transformers,
    state calculations, business rules. Use the project's existing test framework.
    Run them: npm test (or the project's unit test command) — fix until green.
-6. Do NOT unit test UI rendering or things that are better covered by E2E tests.
+7. Do NOT unit test UI rendering or things that are better covered by E2E tests.
    Unit tests are for logic; E2E tests are for behavior.
 
-### Phase 3: E2E Test & Verify
-7. Write or update E2E tests in the Playwright test files
-8. Follow the screenshot naming convention: {scope}-feature-{id}-step{N}-{description}.png
+### Phase 3: E2E Test & Visual Verification
+
+**MANDATORY SCREENSHOT RULE: Every E2E test MUST take at least one fullPage screenshot.
+Every screenshot MUST be visually reviewed using the Read tool.
+If you skip screenshots or visual review, the feature is NOT complete.**
+
+8. Write or update E2E tests in the Playwright test files. EVERY test must include at least one:
+   ```typescript
+   await page.screenshot({
+     path: `e2e/screenshots/{scope}-feature-{id}-step{N}-{description}.png`,
+     fullPage: true
+   });
+   ```
 9. Snapshot existing screenshots before running tests:
    find e2e/screenshots -name "*.png" -type f 2>/dev/null | sort > /tmp/screenshots-before.txt
 10. Run the feature's E2E tests (not the full suite):
@@ -174,21 +220,23 @@ You are implementing a feature for a web application. Work autonomously — do N
 12. Find new/changed screenshots:
     find e2e/screenshots -name "*.png" -type f 2>/dev/null | sort > /tmp/screenshots-after.txt
     comm -13 /tmp/screenshots-before.txt /tmp/screenshots-after.txt
-    find e2e/screenshots -name "*.png" -newer /tmp/screenshots-before.txt -type f 2>/dev/null | sort
-13. Visually review ONLY the new/changed screenshots using the Read tool. Evaluate for:
-    - Layout — Content fits? No overflow or clipping?
-    - Spacing — Appropriate padding/margins?
-    - Touch targets — Buttons/inputs at least 44px?
-    - Visual hierarchy — Important actions obvious?
-    - Error states — Messages visible and red?
-    - Typography — Text readable, proper sizes?
-    - Consistency — Similar screens use same patterns?
-14. If screenshot issues found: fix (minimal CSS changes, keep data-testid), re-run tests, review again
+13. **MANDATORY VISUAL REVIEW** — Use the Read tool to open and inspect EVERY new screenshot.
+    For each screenshot, evaluate and explicitly note in your work:
+
+    ✓ or ✗ Layout — No overflow, clipping, or misalignment
+    ✓ or ✗ Spacing — Consistent padding/margins, not cramped
+    ✓ or ✗ Hierarchy — Primary actions obvious, text readable, proper font sizes
+    ✓ or ✗ States — Loading/empty/error states present and styled
+    ✓ or ✗ Aesthetics — Looks polished and intentional, not generic/prototype-level
+    ✓ or ✗ Consistency — Matches existing UI patterns, colors, spacing scale
+
+    If ANY item is ✗: fix the issue, re-run tests, review screenshots again.
+    Do NOT proceed to Phase 4 until all items pass.
 
 ### Phase 4: Commit
-15. Update feature_list.json — change "passes": false to "passes": true for this feature
-16. Update progress.txt with what was done and current feature pass count
-17. Commit all changes:
+14. Update feature_list.json — change "passes": false to "passes": true for this feature
+15. Update progress.txt with what was done and current feature pass count
+16. Commit all changes:
     git add -A && git commit -m "feat: [description] — Implemented feature #[id]: [description]"
 
 ## Key Rules
@@ -201,6 +249,8 @@ You are implementing a feature for a web application. Work autonomously — do N
 - Do not duplicate logic — reuse existing helpers or extract new shared ones
 - Use data-testid attributes for test selectors
 - Make all decisions yourself, never ask for human input
+- EVERY test must take screenshots — no exceptions
+- EVERY screenshot must be visually reviewed with the Read tool — no exceptions
 ```
 
 **How to launch the subagent:**
@@ -215,12 +265,23 @@ Agent tool call:
 
 ### After Each Subagent Completes
 
-The subagent handles implementation, testing, screenshot verification, and committing. The parent agent only needs to:
+The subagent handles implementation, testing, screenshot verification, and committing. The parent agent MUST verify:
 
-1. **Confirm** the feature was committed (`git log --oneline -1`)
-2. **Confirm** `feature_list.json` was updated (`"passes": true`)
-3. If the subagent failed to complete, launch another subagent to fix and finish
-4. **Loop back** — pick the next incomplete feature and repeat
+1. **Confirm commit** — `git log --oneline -1`
+2. **Confirm feature_list.json** — feature has `"passes": true`
+3. **VERIFY SCREENSHOTS EXIST** for this feature:
+   ```bash
+   ls e2e/screenshots/{scope}-feature-{id}-*.png 2>/dev/null | wc -l
+   ```
+   If count is 0, the subagent skipped screenshots. Launch a follow-up subagent to add screenshots and visual review.
+4. **SPOT-CHECK one screenshot** — Use the Read tool to open one screenshot from this feature. Verify the UI looks polished and production-quality, not prototype-level. Check for:
+   - Professional visual design (not bare HTML or unstyled elements)
+   - Proper spacing and alignment
+   - Loading/empty states present
+   - Consistent with other pages in the app
+5. If quality is poor, launch a **polish subagent** to fix visual issues before moving on.
+6. If the subagent failed to complete, launch another subagent to fix and finish.
+7. **Loop back** — pick the next incomplete feature and repeat.
 
 ### Decision Making Guidelines
 
@@ -237,7 +298,8 @@ Since the human may be asleep, follow these rules for autonomous decisions:
 | Port conflict | Kill the conflicting process and restart |
 | Database issue | Reset/reseed the database |
 | Feature blocked by another | Skip to next feature, come back later |
-| Unclear UI design | Follow existing UI patterns in the app |
+| Unclear UI design | Follow /frontend-design principles: bold aesthetic, intentional choices |
+| UI looks generic/plain | Add visual polish: shadows, transitions, better typography, spacing |
 
 ### Session End
 
@@ -303,6 +365,21 @@ Examples:
 - Write unit tests for logic; use E2E tests for UI behavior
 - Do not duplicate logic — reuse or extract shared helpers
 
+### Visual Quality (enforced by /frontend-design principles)
+- Every page must have loading states, empty states, and error states
+- Every interactive element must have hover/focus transitions
+- Typography must be intentional — distinctive fonts, clear hierarchy
+- Color palette must be cohesive — dominant colors with sharp accents
+- Spacing must be consistent — follow a scale (4/8/12/16/24/32/48px)
+- No generic AI aesthetics — no bare unstyled HTML, no default system fonts
+
+### Screenshot Verification (MANDATORY)
+- Every E2E test MUST take at least one fullPage screenshot
+- Every screenshot MUST be visually reviewed with the Read tool
+- Parent agent MUST verify screenshot count > 0 after each subagent
+- Parent agent MUST spot-check at least one screenshot per feature
+- If screenshots are missing or UI is poor quality, a follow-up subagent is required
+
 ### Session Handoff
 - All work committed before ending session
 - `progress.txt` updated with session summary
@@ -334,6 +411,13 @@ Examples:
 - Check viewport size
 - Verify correct URL navigation
 
+### UI Looks Generic/Plain
+- Review /frontend-design principles and references/ux-standards.md
+- Add distinctive typography (not Inter/Arial/system fonts)
+- Add visual depth: shadows, borders, gradients
+- Add micro-interactions: hover transitions, focus effects
+- Ensure loading/empty/error states are polished, not bare text
+
 ---
 
 ## Reference Files
@@ -343,3 +427,5 @@ For detailed templates and examples, see:
 - `references/init-script-template.md` — init.sh template
 - `references/continue-workflow.md` — Full continue workflow details
 - `references/e2e-verification.md` — E2E screenshot evaluation criteria and Playwright setup
+- `references/ux-standards.md` — UX quality standards and checklist
+- `references/frontend-design.md` — Design principles from /frontend-design skill

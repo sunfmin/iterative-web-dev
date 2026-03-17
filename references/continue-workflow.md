@@ -80,8 +80,8 @@ WHILE there are features with "passes": false in feature_list.json:
     1. Read feature_list.json
     2. Find the highest-priority feature with "passes": false
     3. Launch a SUBAGENT to implement, test, verify screenshots, and commit
-    4. Confirm subagent completed (check git log and feature_list.json)
-    5. If subagent failed: launch another to fix and finish
+    4. After subagent completes: VERIFY screenshots and quality (Step 4c)
+    5. If quality fails: launch polish subagent
     6. LOOP BACK to step 1
 END WHILE
 ```
@@ -96,97 +96,46 @@ From `feature_list.json`, find the **highest-priority feature** that has `"passe
 
 #### 4b: Launch a Subagent for the Feature
 
-Use the **Agent tool** (Claude Code) to launch a subagent for each feature. The subagent handles the **full lifecycle**: implement, test, verify screenshots, and commit. This isolates each feature's work and prevents context window overflow.
+Use the **Agent tool** (Claude Code) to launch a subagent for each feature. The subagent handles the **full lifecycle**: implement, UX quality check, test, verify screenshots, and commit. This isolates each feature's work and prevents context window overflow.
 
-**Subagent prompt template:**
+Use the subagent prompt template from SKILL.md. The template includes:
+- Phase 1: Implement
+- Phase 1.5: UX Quality Checklist (NEW — ensures loading/empty/error states, responsive, accessible)
+- Phase 2: Refactor & Unit Test
+- Phase 3: E2E Test & Visual Verification (ENHANCED — mandatory screenshots + visual review)
+- Phase 4: Commit
 
-```
-You are implementing a feature for a web application. Work autonomously — do NOT ask questions, make your best judgment on all decisions.
+#### 4c: Verify Subagent Output (MANDATORY)
 
-## Project Context
-- Working directory: {pwd}
-- Active scope: {scope from .active-scope}
+After the subagent completes, the parent agent MUST verify:
 
-## Feature to Implement
-- ID: {id}
-- Description: {description}
-- Category: {category}
-- Priority: {priority}
-- Test Steps:
-{steps as bullet list}
-
-## Instructions
-
-### Phase 1: Implement
-1. Read the relevant source files to understand the current codebase
-2. Read the spec.md file for full project context
-3. Implement the feature following existing code patterns
-4. Make sure the implementation is complete and production-quality
-
-### Phase 2: Refactor & Unit Test
-5. Review the code you just wrote and any code you touched. Actively refactor for:
-   - **Testability** — Extract pure functions and logic out of UI components and handlers.
-     Move business logic, validation, data transformation, and state calculations into
-     separate utility/service modules that can be unit tested without DOM or network.
-   - **Reusability** — If you see duplicated logic (in your code or existing code you touched),
-     extract shared helpers. Don't duplicate what already exists elsewhere in the codebase.
-   - **Maintainability** — Keep functions small and single-purpose. Name things clearly.
-     Split large files. Prefer composition over deep nesting.
-6. Write unit tests for all extracted logic — pure functions, validators, transformers,
-   state calculations, business rules. Use the project's existing test framework.
-   Run them: npm test (or the project's unit test command) — fix until green.
-7. Do NOT unit test UI rendering or things that are better covered by E2E tests.
-   Unit tests are for logic; E2E tests are for behavior.
-
-### Phase 3: E2E Test & Verify
-8. Write or update E2E tests in the Playwright test files
-9. Follow the screenshot naming convention: {scope}-feature-{id}-step{N}-{description}.png
-10. Snapshot existing screenshots before running tests:
-    find e2e/screenshots -name "*.png" -type f 2>/dev/null | sort > /tmp/screenshots-before.txt
-11. Run the feature's E2E tests (not the full suite):
-    npx playwright test --grep "feature-{id}"  # or the relevant test file
-12. If tests fail: read the errors, fix, and re-run until they pass
-13. Find new/changed screenshots:
-    find e2e/screenshots -name "*.png" -type f 2>/dev/null | sort > /tmp/screenshots-after.txt
-    comm -13 /tmp/screenshots-before.txt /tmp/screenshots-after.txt
-    find e2e/screenshots -name "*.png" -newer /tmp/screenshots-before.txt -type f 2>/dev/null | sort
-14. Visually review ONLY the new/changed screenshots using the Read tool. Evaluate for:
-    - Layout — Content fits? No overflow or clipping?
-    - Spacing — Appropriate padding/margins? Not cramped or sparse?
-    - Touch targets — Buttons/inputs at least 44px?
-    - Visual hierarchy — Most important action obvious? Disabled states clear?
-    - Error states — Messages visible and red? Associated with correct input?
-    - Data display — Real data, not placeholders? Loading/empty states handled?
-    - Typography — Text readable? Labels distinguishable from values?
-    - Consistency — Similar screens use same patterns? Colors match theme?
-15. If screenshot issues found: fix (minimal CSS changes, keep data-testid), re-run tests, review again
-
-### Phase 4: Commit
-16. Update feature_list.json — change "passes": false to "passes": true for this feature
-17. Update progress.txt with what was done and current feature pass count
-18. Commit all changes:
-    git add -A && git commit -m "feat: [description] — Implemented feature #[id]: [description]"
-
-## Key Rules
-- Follow existing code patterns and architecture
-- Keep changes focused on this feature only
-- Do not break other features
-- Write clean, production-ready code
-- Keep files under 300 lines — refactor if needed
-- Extract logic out of components/handlers into testable modules — unit test the logic, E2E test the behavior
-- Do not duplicate logic — reuse existing helpers or extract new shared ones
-- Use data-testid attributes for test selectors
-- Make all decisions yourself, never ask for human input
-```
-
-#### 4c: Confirm Subagent Completion
-
-After the subagent completes, the parent agent only needs to:
-
-1. **Confirm** the feature was committed: `git log --oneline -1`
-2. **Confirm** `feature_list.json` was updated: check that the feature has `"passes": true`
-3. If the subagent failed to complete, launch another subagent to fix and finish
-4. **Loop back** — pick the next incomplete feature and repeat
+1. **Confirm commit** — `git log --oneline -1`
+2. **Confirm feature_list.json** — feature has `"passes": true`
+3. **VERIFY SCREENSHOTS EXIST** — This is critical:
+   ```bash
+   ls e2e/screenshots/{scope}-feature-{id}-*.png 2>/dev/null | wc -l
+   ```
+   If count is 0, the subagent skipped screenshots. Launch a follow-up subagent:
+   ```
+   "Add screenshots and visual review for feature #{id}. The feature is already
+   implemented and committed, but screenshots are missing. Write E2E tests that
+   take fullPage screenshots at key states, run them, then visually review each
+   screenshot with the Read tool. Fix any visual issues found."
+   ```
+4. **SPOT-CHECK one screenshot** — Use the Read tool to open one screenshot from this feature. Evaluate:
+   - Does it look polished and professional?
+   - Are there loading/empty states where needed?
+   - Is spacing and typography consistent?
+   - Does it match the design language of other pages?
+5. If quality is poor, launch a **polish subagent**:
+   ```
+   "Polish the UI for feature #{id}. Review all screenshots in
+   e2e/screenshots/{scope}-feature-{id}-*.png and fix visual issues:
+   [list specific issues found]. Follow references/ux-standards.md and
+   references/frontend-design.md for quality standards."
+   ```
+6. If the subagent failed to complete, launch another subagent to fix and finish.
+7. **Loop back** — pick the next incomplete feature and repeat.
 
 **Do NOT stop. Keep looping until all features pass.**
 
@@ -213,6 +162,7 @@ Only when every feature has `"passes": true`:
    ### Summary:
    - All [N] features implemented and passing
    - Unit tests and regression E2E tests green
+   - All features have screenshots and visual review verified
    - Codebase clean and production-ready
    ```
 5. **Final commit** if needed
@@ -232,9 +182,12 @@ Since the human may be asleep, follow these rules:
 | Port conflict | Kill conflicting process, restart |
 | Database issue | Reset/reseed the database |
 | Feature blocked | Skip to next, come back later |
-| Unclear UI design | Follow existing UI patterns in the app |
+| Unclear UI design | Follow /frontend-design principles: bold aesthetic, intentional choices |
+| UI looks generic/plain | Add visual polish: shadows, transitions, better typography, spacing |
 | Missing dependency | Install it |
 | Unclear file structure | Follow existing project conventions |
+| Subagent skipped screenshots | Launch follow-up subagent to add them |
+| Spot-check reveals poor UI | Launch polish subagent to fix visual issues |
 
 ## What NOT To Do
 
@@ -247,3 +200,6 @@ Since the human may be asleep, follow these rules:
 - Don't modify feature descriptions or test steps in feature_list.json
 - Don't implement features out of priority order without good reason
 - Don't wait for human approval between features
+- Don't skip screenshots or visual review — they are MANDATORY
+- Don't accept prototype-quality UI — every page must be polished
+- Don't skip the parent spot-check after each subagent completes
