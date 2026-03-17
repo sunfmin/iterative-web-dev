@@ -159,7 +159,7 @@ You are implementing a feature for a web application. Work autonomously — do N
 3. Implement the feature following existing code patterns
 4. Make sure the implementation is complete and production-quality
 
-### Phase 1.5: UX Quality Checklist
+### Phase 2: UX Quality Checklist
 
 Before moving on, verify your implementation meets these UX standards.
 See references/ux-standards.md for full details.
@@ -192,7 +192,7 @@ See references/ux-standards.md for full details.
 
 If any checkbox fails, fix it before proceeding.
 
-### Phase 2: Refactor & Unit Test
+### Phase 3: Refactor & Unit Test
 5. Review the code you just wrote and any code you touched. Actively refactor for:
    - **Testability** — Extract pure functions and logic out of UI components and handlers.
      Move business logic, validation, data transformation, and state calculations into
@@ -207,7 +207,7 @@ If any checkbox fails, fix it before proceeding.
 7. Do NOT unit test UI rendering or things that are better covered by E2E tests.
    Unit tests are for logic; E2E tests are for behavior.
 
-### Phase 3: E2E Test & Visual Verification
+### Phase 4: E2E Test & Visual Verification
 
 **MANDATORY SCREENSHOT RULE: Every E2E test MUST take at least one fullPage screenshot.
 Every screenshot MUST be visually reviewed using the Read tool.
@@ -239,12 +239,34 @@ If you skip screenshots or visual review, the feature is NOT complete.**
     ✓ or ✗ Consistency — Matches existing UI patterns, colors, spacing scale
 
     If ANY item is ✗: fix the issue, re-run tests, review screenshots again.
-    Do NOT proceed to Phase 4 until all items pass.
+    Do NOT proceed to Phase 6 until all items pass.
 
-### Phase 4: Commit
-14. Update feature_list.json — change "passes": false to "passes": true for this feature
-15. Update progress.txt with what was done and current feature pass count
-16. Commit all changes:
+### Phase 5: Gitignore Review (before committing)
+14. Review ALL files that would be staged by running:
+    ```bash
+    git status --short
+    ```
+    For every untracked or modified file, check if it should be in `.gitignore`. Common files that MUST be gitignored:
+    - Build artifacts: `dist/`, `build/`, `.next/`, `out/`, `.output/`
+    - Dependencies: `node_modules/`, `vendor/`, `.pnp.*`
+    - Environment/secrets: `.env`, `.env.local`, `.env.*.local`, `*.pem`, `*.key`
+    - IDE/editor: `.idea/`, `.vscode/`, `*.swp`, `*.swo`
+    - OS files: `.DS_Store`, `Thumbs.db`, `desktop.ini`
+    - Test artifacts: `test-results/`, `playwright-report/`, `coverage/`, `.nyc_output/`
+    - Logs: `*.log`, `npm-debug.log*`, `yarn-debug.log*`
+    - Cache: `.cache/`, `.parcel-cache/`, `.turbo/`, `.eslintcache`
+    - Database files: `*.sqlite`, `*.db`
+    - Generated files: `*.map` (source maps in production), `*.tsbuildinfo`
+
+    If ANY file should be gitignored:
+    a. Add the pattern to `.gitignore`
+    b. If already tracked, remove from tracking: `git rm --cached <file>`
+    c. Verify with `git status` that the file is now ignored
+
+### Phase 6: Commit
+15. Update feature_list.json — change "passes": false to "passes": true for this feature
+16. Update progress.txt with what was done and current feature pass count
+17. Commit all changes:
     git add -A && git commit -m "feat: [description] — Implemented feature #[id]: [description]"
 
 ## Key Rules
@@ -259,6 +281,7 @@ If you skip screenshots or visual review, the feature is NOT complete.**
 - Make all decisions yourself, never ask for human input
 - EVERY test must take screenshots — no exceptions
 - EVERY screenshot must be visually reviewed with the Read tool — no exceptions
+- BEFORE committing, review ALL files for .gitignore candidates — never commit build artifacts, secrets, or generated files
 ```
 
 **How to launch the subagent:**
