@@ -16,14 +16,14 @@ This skill provides a complete workflow for AI agents working on long-running de
 5. **Test before build** — Verify existing features work before implementing new ones.
 6. **Autonomous execution** — Make all decisions yourself. Never stop to ask the human. The human may be asleep.
 7. **Subagent per feature** — Each feature is implemented in its own subagent for isolation and parallelism safety.
+8. **Refactor and unit test** — Actively extract logic into testable modules and write unit tests. Keep code reusable and maintainable.
 
 ## When to Use Each Workflow
 
 | Workflow | Use When |
 |----------|----------|
 | **init-scope** | Starting a new scope, switching scopes, or setting up project structure |
-| **continue** | Every session after init — picking up work and implementing ALL remaining features |
-| **e2e-screenshot-verification** | Verifying features visually, reviewing UI, catching UX issues |
+| **continue** | Every session after init — picking up work, implementing ALL remaining features, and verifying each with E2E screenshot review |
 
 ---
 
@@ -105,7 +105,7 @@ This is the main workflow. It runs ALL remaining features to completion without 
    bash init.sh
    ```
 
-3. **Verify existing features** — Run E2E tests to check for regressions
+3. **Verify existing features** — Run all unit tests (fast) and only the E2E tests for features completed in previous sessions (not this session's new work). Skip E2E tests for features not yet implemented.
 
 ### Autonomous Feature Loop
 
@@ -114,11 +114,9 @@ After startup, enter the **feature loop**. This loop runs until ALL features pas
 ```
 WHILE there are features with "passes": false in feature_list.json:
     1. Read feature_list.json to find next incomplete feature (highest priority first)
-    2. Launch a SUBAGENT to implement that feature
-    3. After subagent completes, run E2E tests to verify
-    4. If tests pass: update feature_list.json ("passes": true), commit, update progress.txt
-    5. If tests fail: read errors, fix issues yourself (launch another subagent if needed), re-test
-    6. CONTINUE to next feature — do NOT stop
+    2. Launch a SUBAGENT to implement, test, verify screenshots, and commit
+    3. After subagent completes, confirm feature_list.json was updated
+    4. CONTINUE to next feature — do NOT stop
 END WHILE
 ```
 
@@ -144,12 +142,54 @@ You are implementing a feature for a web application. Work autonomously — do N
 {steps as bullet list}
 
 ## Instructions
+
+### Phase 1: Implement
 1. Read the relevant source files to understand the current codebase
 2. Implement the feature following existing code patterns
-3. Write or update E2E tests in the Playwright test files
-4. Follow the screenshot naming convention: {scope}-feature-{id}-step{N}-{description}.png
-5. Make sure the implementation is complete and production-quality
-6. Do NOT commit — the parent agent will handle commits after verification
+3. Make sure the implementation is complete and production-quality
+
+### Phase 2: Refactor & Unit Test
+4. Review the code you just wrote and any code you touched. Actively refactor for:
+   - **Testability** — Extract pure functions and logic out of UI components and handlers.
+     Move business logic, validation, data transformation, and state calculations into
+     separate utility/service modules that can be unit tested without DOM or network.
+   - **Reusability** — If you see duplicated logic (in your code or existing code you touched),
+     extract shared helpers. Don't duplicate what already exists elsewhere in the codebase.
+   - **Maintainability** — Keep functions small and single-purpose. Name things clearly.
+     Split large files. Prefer composition over deep nesting.
+5. Write unit tests for all extracted logic — pure functions, validators, transformers,
+   state calculations, business rules. Use the project's existing test framework.
+   Run them: npm test (or the project's unit test command) — fix until green.
+6. Do NOT unit test UI rendering or things that are better covered by E2E tests.
+   Unit tests are for logic; E2E tests are for behavior.
+
+### Phase 3: E2E Test & Verify
+7. Write or update E2E tests in the Playwright test files
+8. Follow the screenshot naming convention: {scope}-feature-{id}-step{N}-{description}.png
+9. Snapshot existing screenshots before running tests:
+   find e2e/screenshots -name "*.png" -type f 2>/dev/null | sort > /tmp/screenshots-before.txt
+10. Run the feature's E2E tests (not the full suite):
+    npx playwright test --grep "feature-{id}"  # or the relevant test file
+11. If tests fail: read the errors, fix, and re-run until they pass
+12. Find new/changed screenshots:
+    find e2e/screenshots -name "*.png" -type f 2>/dev/null | sort > /tmp/screenshots-after.txt
+    comm -13 /tmp/screenshots-before.txt /tmp/screenshots-after.txt
+    find e2e/screenshots -name "*.png" -newer /tmp/screenshots-before.txt -type f 2>/dev/null | sort
+13. Visually review ONLY the new/changed screenshots using the Read tool. Evaluate for:
+    - Layout — Content fits? No overflow or clipping?
+    - Spacing — Appropriate padding/margins?
+    - Touch targets — Buttons/inputs at least 44px?
+    - Visual hierarchy — Important actions obvious?
+    - Error states — Messages visible and red?
+    - Typography — Text readable, proper sizes?
+    - Consistency — Similar screens use same patterns?
+14. If screenshot issues found: fix (minimal CSS changes, keep data-testid), re-run tests, review again
+
+### Phase 4: Commit
+15. Update feature_list.json — change "passes": false to "passes": true for this feature
+16. Update progress.txt with what was done and current feature pass count
+17. Commit all changes:
+    git add -A && git commit -m "feat: [description] — Implemented feature #[id]: [description]"
 
 ## Key Rules
 - Follow existing code patterns and architecture
@@ -157,6 +197,8 @@ You are implementing a feature for a web application. Work autonomously — do N
 - Do not break other features
 - Write clean, production-ready code
 - Keep files under 300 lines — refactor if needed
+- Extract logic out of components/handlers into testable modules — unit test the logic, E2E test the behavior
+- Do not duplicate logic — reuse existing helpers or extract new shared ones
 - Use data-testid attributes for test selectors
 - Make all decisions yourself, never ask for human input
 ```
@@ -173,27 +215,12 @@ Agent tool call:
 
 ### After Each Subagent Completes
 
-1. **Run E2E tests** to verify the feature:
-   ```bash
-   npx playwright test
-   ```
+The subagent handles implementation, testing, screenshot verification, and committing. The parent agent only needs to:
 
-2. **Review results:**
-   - If tests pass: update `feature_list.json` (`"passes": true`), commit, log progress
-   - If tests fail: read the errors, fix them yourself or launch another subagent, re-test
-
-3. **Commit the feature:**
-   ```bash
-   git add -A
-   git commit -m "feat: [description]
-
-   - Implemented feature #[id]: [description]
-   - Tests: [X] passing / [N] total"
-   ```
-
-4. **Update progress.txt** with session entry
-
-5. **Loop back** — pick the next incomplete feature and repeat
+1. **Confirm** the feature was committed (`git log --oneline -1`)
+2. **Confirm** `feature_list.json` was updated (`"passes": true`)
+3. If the subagent failed to complete, launch another subagent to fix and finish
+4. **Loop back** — pick the next incomplete feature and repeat
 
 ### Decision Making Guidelines
 
@@ -219,54 +246,11 @@ Only end the session when:
 - A truly unrecoverable error occurs (hardware failure, missing credentials, etc.)
 
 Before ending:
-1. Run full E2E test suite one final time
-2. Ensure clean git status (`git status` shows clean working tree)
-3. Update `progress.txt` with final summary
-4. Commit any remaining changes
-
----
-
-## Workflow: E2E Screenshot Verification
-
-Use this to verify features work correctly with visual inspection.
-
-### Steps
-
-1. **Ensure environment running**
-   ```bash
-   lsof -i :3000 | head -2  # Frontend
-   lsof -i :8082 | head -2  # Backend
-   ```
-
-2. **Clear old screenshots**
-   ```bash
-   rm -rf e2e/screenshots/*.png 2>/dev/null || true
-   rm -rf test-results/**/*.png 2>/dev/null || true
-   ```
-
-3. **Run E2E tests**
-   ```bash
-   npx playwright test
-   ```
-
-4. **List screenshots**
-   ```bash
-   find e2e/screenshots -name "*.png" -type f | sort
-   ```
-
-5. **Review each screenshot** — Use Read tool to visually inspect
-
-6. **Evaluate for issues**:
-   - **Layout** — Content fits? No overflow?
-   - **Spacing** — Appropriate padding/margins?
-   - **Touch targets** — Buttons at least 44px?
-   - **Visual hierarchy** — Important actions obvious?
-   - **Error states** — Messages visible and red?
-   - **Typography** — Text readable?
-
-7. **Fix issues found** — Minimal CSS changes, keep data-testid intact
-
-8. **Re-run and verify** — Repeat until all issues resolved
+1. Run all unit tests
+2. Run E2E tests only for features that were completed in previous sessions (regression check)
+3. Ensure clean git status (`git status` shows clean working tree)
+4. Update `progress.txt` with final summary
+5. Commit any remaining changes
 
 ---
 
@@ -315,6 +299,9 @@ Examples:
 - Follow existing code patterns
 - Keep functions focused and files well-organized
 - Refactor files exceeding 300 lines
+- Extract business logic, validation, and data transformations into pure, testable modules
+- Write unit tests for logic; use E2E tests for UI behavior
+- Do not duplicate logic — reuse or extract shared helpers
 
 ### Session Handoff
 - All work committed before ending session
@@ -355,4 +342,4 @@ For detailed templates and examples, see:
 - `references/feature-list-format.md` — Feature list JSON structure
 - `references/init-script-template.md` — init.sh template
 - `references/continue-workflow.md` — Full continue workflow details
-- `references/e2e-verification.md` — Full E2E verification details
+- `references/e2e-verification.md` — E2E screenshot evaluation criteria and Playwright setup

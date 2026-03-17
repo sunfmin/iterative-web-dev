@@ -34,8 +34,7 @@ This skill provides a complete workflow for AI agents working on long-running we
 | Workflow | Use When |
 |----------|----------|
 | **init-scope** | Starting a new scope, switching scopes, or setting up project structure |
-| **continue** | Every session after init — autonomously implements ALL remaining features |
-| **e2e-screenshot-verification** | Verifying features visually, reviewing UI, catching UX issues |
+| **continue** | Every session after init — implements ALL remaining features with E2E screenshot verification built in |
 
 ## Key Files
 
@@ -48,10 +47,9 @@ This skill provides a complete workflow for AI agents working on long-running we
 
 1. Agent reads `feature_list.json` to find incomplete features
 2. For each feature, launches a **subagent** (via Agent tool) with full context
-3. Subagent implements the feature and writes E2E tests
-4. Parent agent runs tests, verifies, commits
-5. **Loops back** to pick the next feature
-6. Only stops when ALL features have `"passes": true`
+3. Subagent implements the feature, writes E2E tests, reviews screenshots, and commits
+4. Parent agent confirms completion, then **loops back** to pick the next feature
+5. Only stops when ALL features have `"passes": true`
 
 ## License
 
