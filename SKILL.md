@@ -19,6 +19,19 @@ This skill provides a complete workflow for AI agents working on long-running de
 8. **Refactor and unit test** — Actively extract logic into testable modules and write unit tests. Keep code reusable and maintainable.
 9. **Visual quality is non-negotiable** — Every feature MUST be verified via screenshots. A feature that works but looks bad is NOT complete. Screenshots are the primary evidence of correct implementation.
 10. **Design with intention** — Follow the `/frontend-design` skill principles: commit to a bold aesthetic direction, avoid generic AI aesthetics, and create interfaces that are distinctive and production-grade. Every UI decision should be intentional, not default.
+11. **Standards are auditable** — Quality standards live in reference docs and are systematically verified, not just aspirational checklists.
+
+## Standards Documents
+
+All verifiable quality standards are extracted into reference docs. These are used both as guidance during implementation and as audit targets for systematic verification.
+
+| Document | What it covers |
+|----------|---------------|
+| `references/ux-standards.md` | Loading/empty/error states, responsive design, accessibility, forms, tables, navigation |
+| `references/frontend-design.md` | Typography, color, spatial composition, micro-interactions, anti-patterns |
+| `references/code-quality.md` | File organization, testable architecture, unit testing, no duplication |
+| `references/gitignore-standards.md` | Files that must never be committed |
+| `references/e2e-verification.md` | Screenshot rules, visual review criteria, Playwright setup |
 
 ## When to Use Each Workflow
 
@@ -133,12 +146,18 @@ This is the main workflow. It runs ALL remaining features to completion without 
 After startup, enter the **feature loop**. This loop runs until ALL features pass:
 
 ```
+features_completed_this_session = 0
+
 WHILE there are features with "passes": false in feature_list.json:
     1. Read feature_list.json to find next incomplete feature (highest priority first)
     2. Launch a SUBAGENT to implement, test, verify screenshots, and commit
     3. After subagent completes, VERIFY screenshots and quality (see below)
-    4. CONTINUE to next feature — do NOT stop
+    4. features_completed_this_session++
+    5. If features_completed_this_session % 5 == 0: run STANDARDS AUDIT (see below)
+    6. CONTINUE to next feature — do NOT stop
 END WHILE
+
+Run FINAL STANDARDS AUDIT before ending session
 ```
 
 ### Launching Feature Subagents (Claude Code)
@@ -162,137 +181,59 @@ You are implementing a feature for a web application. Work autonomously — do N
 - Test Steps:
 {steps as bullet list}
 
+## Standards Documents
+Read these reference docs and follow them during implementation:
+- references/code-quality.md — Code organization, testability, unit testing rules
+- references/ux-standards.md — UX quality requirements (loading/empty/error states, responsive, accessibility)
+- references/frontend-design.md — Visual design principles (typography, color, composition)
+- references/gitignore-standards.md — Files that must never be committed
+- references/e2e-verification.md — Screenshot and E2E testing rules
+
 ## Instructions
 
 ### Phase 1: Implement
 1. Read the relevant source files to understand the current codebase
 2. Read the spec.md file for full project context
-3. Implement the feature following existing code patterns
-4. Make sure the implementation is complete and production-quality
+3. Read the standards documents listed above
+4. Implement the feature following existing code patterns and the standards
+5. Make sure the implementation is complete and production-quality
 
-### Phase 2: UX Quality Checklist
+### Phase 2: Refactor & Unit Test
+6. Review the code you wrote. Refactor following references/code-quality.md:
+   - Extract pure functions out of UI components and handlers
+   - Move business logic into testable utility/service modules
+   - Eliminate duplication — reuse existing helpers or extract new shared ones
+   - Keep files under 300 lines
+7. Write unit tests for all extracted logic. Run them until green.
+8. Do NOT unit test UI rendering — that's what E2E tests are for.
 
-Before moving on, verify your implementation meets these UX standards.
-See references/ux-standards.md for full details.
+### Phase 3: E2E Test & Visual Verification
+Follow the full process in references/e2e-verification.md:
+9. Write E2E tests with screenshots at key user journey points
+10. Run the feature's E2E tests — fix until green
+11. MANDATORY: Use the Read tool to visually review EVERY screenshot
+    Evaluate against the criteria in references/e2e-verification.md (layout, spacing,
+    hierarchy, states, aesthetics, consistency). Fix and re-run until all pass.
 
-**Required for ALL features:**
-- [ ] Loading states — Show skeleton/spinner while data loads (server components can use Suspense)
-- [ ] Empty states — Show icon + helpful message + CTA when no data exists
-- [ ] Error states — Show clear error messages with recovery actions
-- [ ] Responsive — Verify layout works at 375px, 768px, 1280px widths
-- [ ] Accessibility — aria-labels on interactive elements, keyboard navigable, focus rings visible
+### Phase 4: Gitignore Review
+Follow references/gitignore-standards.md:
+12. Run `git status --short` and check every file against gitignore patterns
+13. Add any missing patterns to `.gitignore`, remove from tracking if needed
 
-**Required for form features:**
-- [ ] Field grouping — Related fields grouped with section headers/dividers
-- [ ] Help text — Placeholder text or descriptions for non-obvious fields
-- [ ] Validation feedback — Inline errors below fields with red borders, clearing on fix
-- [ ] Submit feedback — Button shows loading state ("Saving..."), disables during submit
-
-**Required for list/table features:**
-- [ ] Column alignment — Numbers right-aligned, text left-aligned
-- [ ] Hover states — Row highlighting on hover
-- [ ] Empty search results — "No results for 'X'" with clear filters CTA
-- [ ] Mobile layout — Table scrolls horizontally or collapses to cards on small screens
-
-**Required for all UI work (follow /frontend-design principles):**
-- [ ] Typography — Use distinctive, characterful fonts. Avoid generic defaults (Inter, Arial, system fonts)
-- [ ] Color & theme — Commit to a cohesive aesthetic. Dominant colors with sharp accents
-- [ ] Spatial composition — Intentional layout. Generous negative space OR controlled density
-- [ ] Visual details — Atmosphere and depth. Subtle shadows, borders, or textures where appropriate
-- [ ] Micro-interactions — Hover transitions (150-200ms), focus effects, button feedback
-
-If any checkbox fails, fix it before proceeding.
-
-### Phase 3: Refactor & Unit Test
-5. Review the code you just wrote and any code you touched. Actively refactor for:
-   - **Testability** — Extract pure functions and logic out of UI components and handlers.
-     Move business logic, validation, data transformation, and state calculations into
-     separate utility/service modules that can be unit tested without DOM or network.
-   - **Reusability** — If you see duplicated logic (in your code or existing code you touched),
-     extract shared helpers. Don't duplicate what already exists elsewhere in the codebase.
-   - **Maintainability** — Keep functions small and single-purpose. Name things clearly.
-     Split large files. Prefer composition over deep nesting.
-6. Write unit tests for all extracted logic — pure functions, validators, transformers,
-   state calculations, business rules. Use the project's existing test framework.
-   Run them: npm test (or the project's unit test command) — fix until green.
-7. Do NOT unit test UI rendering or things that are better covered by E2E tests.
-   Unit tests are for logic; E2E tests are for behavior.
-
-### Phase 4: E2E Test & Visual Verification
-
-**MANDATORY SCREENSHOT RULE: Every E2E test MUST take at least one fullPage screenshot.
-Every screenshot MUST be visually reviewed using the Read tool.
-If you skip screenshots or visual review, the feature is NOT complete.**
-
-8. Write or update E2E tests in the Playwright test files. EVERY test must include at least one:
-   ```typescript
-   await page.screenshot({
-     path: `e2e/screenshots/{scope}-feature-{id}-step{N}-{description}.png`,
-     fullPage: true
-   });
-   ```
-9. Snapshot existing screenshots before running tests:
-   find e2e/screenshots -name "*.png" -type f 2>/dev/null | sort > /tmp/screenshots-before.txt
-10. Run the feature's E2E tests (not the full suite):
-    npx playwright test --grep "feature-{id}"  # or the relevant test file
-11. If tests fail: read the errors, fix, and re-run until they pass
-12. Find new/changed screenshots:
-    find e2e/screenshots -name "*.png" -type f 2>/dev/null | sort > /tmp/screenshots-after.txt
-    comm -13 /tmp/screenshots-before.txt /tmp/screenshots-after.txt
-13. **MANDATORY VISUAL REVIEW** — Use the Read tool to open and inspect EVERY new screenshot.
-    For each screenshot, evaluate and explicitly note in your work:
-
-    ✓ or ✗ Layout — No overflow, clipping, or misalignment
-    ✓ or ✗ Spacing — Consistent padding/margins, not cramped
-    ✓ or ✗ Hierarchy — Primary actions obvious, text readable, proper font sizes
-    ✓ or ✗ States — Loading/empty/error states present and styled
-    ✓ or ✗ Aesthetics — Looks polished and intentional, not generic/prototype-level
-    ✓ or ✗ Consistency — Matches existing UI patterns, colors, spacing scale
-
-    If ANY item is ✗: fix the issue, re-run tests, review screenshots again.
-    Do NOT proceed to Phase 6 until all items pass.
-
-### Phase 5: Gitignore Review (before committing)
-14. Review ALL files that would be staged by running:
-    ```bash
-    git status --short
-    ```
-    For every untracked or modified file, check if it should be in `.gitignore`. Common files that MUST be gitignored:
-    - Build artifacts: `dist/`, `build/`, `.next/`, `out/`, `.output/`
-    - Dependencies: `node_modules/`, `vendor/`, `.pnp.*`
-    - Environment/secrets: `.env`, `.env.local`, `.env.*.local`, `*.pem`, `*.key`
-    - IDE/editor: `.idea/`, `.vscode/`, `*.swp`, `*.swo`
-    - OS files: `.DS_Store`, `Thumbs.db`, `desktop.ini`
-    - Test artifacts: `test-results/`, `playwright-report/`, `coverage/`, `.nyc_output/`
-    - Logs: `*.log`, `npm-debug.log*`, `yarn-debug.log*`
-    - Cache: `.cache/`, `.parcel-cache/`, `.turbo/`, `.eslintcache`
-    - Database files: `*.sqlite`, `*.db`
-    - Generated files: `*.map` (source maps in production), `*.tsbuildinfo`
-
-    If ANY file should be gitignored:
-    a. Add the pattern to `.gitignore`
-    b. If already tracked, remove from tracking: `git rm --cached <file>`
-    c. Verify with `git status` that the file is now ignored
-
-### Phase 6: Commit
-15. Update feature_list.json — change "passes": false to "passes": true for this feature
-16. Update progress.txt with what was done and current feature pass count
-17. Commit all changes:
+### Phase 5: Commit
+14. Update feature_list.json — change "passes": false to "passes": true
+15. Update progress.txt with what was done and current feature pass count
+16. Commit all changes:
     git add -A && git commit -m "feat: [description] — Implemented feature #[id]: [description]"
 
 ## Key Rules
-- Follow existing code patterns and architecture
+- Follow existing code patterns and the standards documents
 - Keep changes focused on this feature only
 - Do not break other features
-- Write clean, production-ready code
-- Keep files under 300 lines — refactor if needed
-- Extract logic out of components/handlers into testable modules — unit test the logic, E2E test the behavior
-- Do not duplicate logic — reuse existing helpers or extract new shared ones
-- Use data-testid attributes for test selectors
 - Make all decisions yourself, never ask for human input
 - EVERY test must take screenshots — no exceptions
-- EVERY screenshot must be visually reviewed with the Read tool — no exceptions
-- BEFORE committing, review ALL files for .gitignore candidates — never commit build artifacts, secrets, or generated files
+- EVERY screenshot must be visually reviewed — no exceptions
+- BEFORE committing, review ALL files for .gitignore candidates
 ```
 
 **How to launch the subagent:**
@@ -325,6 +266,50 @@ The subagent handles implementation, testing, screenshot verification, and commi
 6. If the subagent failed to complete, launch another subagent to fix and finish.
 7. **Loop back IMMEDIATELY** — pick the next incomplete feature and launch a new subagent RIGHT NOW. Do NOT stop, do NOT report to the user, do NOT wait for instructions. KEEP GOING until ALL features pass.
 
+### Periodic Standards Audit
+
+**When to run:** Every 5 completed features AND at session end (before final commit).
+
+This uses the same audit pattern as `references/constitution-audit.md`, but applied to the project's own standards documents. The audit catches issues that individual subagents missed — self-review has blind spots.
+
+**Audit process:**
+
+1. For EACH standards document (`ux-standards.md`, `frontend-design.md`, `code-quality.md`, `gitignore-standards.md`), launch a **verification subagent** that:
+   - Reads the standards document
+   - Reads the code/files changed since the last audit (use `git diff --name-only HEAD~5` or similar)
+   - Checks each standard against the actual code
+   - Reports: COMPLIANT or VIOLATION with specific file and line
+
+2. Collect all violations across subagents
+
+3. If violations found:
+   - Group related violations into fix batches
+   - Launch a **fix subagent** for each batch
+   - Each fix subagent commits its changes
+   - Re-verify the fixed code
+
+4. Log audit results in `progress.txt`
+
+**Subagent prompt template for standards audit:**
+
+```
+You are auditing recently changed code against a project standards document.
+
+## Standards Document
+{paste the full content of the standards doc}
+
+## Files to Audit
+{list of files changed since last audit}
+
+## Instructions
+1. Read each file listed above
+2. For EACH standard in the document, check if the code complies
+3. Report findings as:
+   - COMPLIANT: {standard} — {brief evidence}
+   - VIOLATION: {standard} — {file}:{line} — {what's wrong} — {fix needed}
+4. Be thorough — check every standard, don't skip "obvious" ones
+```
+
 ### Decision Making Guidelines
 
 Since the human may be asleep, follow these rules for autonomous decisions:
@@ -350,11 +335,12 @@ Only end the session when:
 - A truly unrecoverable error occurs (hardware failure, missing credentials, etc.)
 
 Before ending:
-1. Run all unit tests
-2. Run E2E tests only for features that were completed in previous sessions (regression check)
-3. Ensure clean git status (`git status` shows clean working tree)
-4. Update `progress.txt` with final summary
-5. Commit any remaining changes
+1. Run **final standards audit** (see Periodic Standards Audit above)
+2. Run all unit tests
+3. Run E2E tests only for features that were completed in previous sessions (regression check)
+4. Ensure clean git status (`git status` shows clean working tree)
+5. Update `progress.txt` with final summary
+6. Commit any remaining changes
 
 ---
 
@@ -398,22 +384,11 @@ Examples:
 - ONLY change `"passes": false` to `"passes": true` after verification
 - Work on features in priority order (high -> medium -> low)
 
-### Code Quality
-- Write production-ready code, not prototypes
-- Follow existing code patterns
-- Keep functions focused and files well-organized
-- Refactor files exceeding 300 lines
-- Extract business logic, validation, and data transformations into pure, testable modules
-- Write unit tests for logic; use E2E tests for UI behavior
-- Do not duplicate logic — reuse or extract shared helpers
-
-### Visual Quality (enforced by /frontend-design principles)
-- Every page must have loading states, empty states, and error states
-- Every interactive element must have hover/focus transitions
-- Typography must be intentional — distinctive fonts, clear hierarchy
-- Color palette must be cohesive — dominant colors with sharp accents
-- Spacing must be consistent — follow a scale (4/8/12/16/24/32/48px)
-- No generic AI aesthetics — no bare unstyled HTML, no default system fonts
+### Standards Enforcement
+- All quality standards live in `references/` docs — subagents MUST read them
+- Standards are verified both during implementation (by subagent) AND periodically (by audit)
+- Audit violations MUST be fixed before session ends
+- See: `references/code-quality.md`, `references/ux-standards.md`, `references/frontend-design.md`, `references/gitignore-standards.md`, `references/e2e-verification.md`
 
 ### Screenshot Verification (MANDATORY)
 - Every E2E test MUST take at least one fullPage screenshot
@@ -458,7 +433,7 @@ Examples:
 - Verify correct URL navigation
 
 ### UI Looks Generic/Plain
-- Review /frontend-design principles and references/ux-standards.md
+- Review references/frontend-design.md and references/ux-standards.md
 - Add distinctive typography (not Inter/Arial/system fonts)
 - Add visual depth: shadows, borders, gradients
 - Add micro-interactions: hover transitions, focus effects
@@ -475,4 +450,6 @@ For detailed templates and examples, see:
 - `references/e2e-verification.md` — E2E screenshot evaluation criteria and Playwright setup
 - `references/ux-standards.md` — UX quality standards and checklist
 - `references/frontend-design.md` — Design principles from /frontend-design skill
+- `references/code-quality.md` — Code organization, testability, and unit testing standards
+- `references/gitignore-standards.md` — Gitignore patterns and review process
 - `references/constitution-audit.md` — Systematic audit workflow for compliance/alignment scopes
