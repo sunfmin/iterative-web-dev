@@ -90,7 +90,15 @@ project-root/
 
 This is the main workflow. It runs ALL remaining features to completion without stopping.
 
-**IMPORTANT: You MUST keep looping until every feature in `feature_list.json` has `"passes": true`. Do NOT stop after one feature. Do NOT ask the human what to do next. The human may be asleep.**
+**⚠️ CRITICAL NON-STOP RULE (NON-NEGOTIABLE) ⚠️**
+
+**You MUST keep looping until EVERY feature in `feature_list.json` has `"passes": true`. Do NOT stop after one feature. Do NOT stop after two features. Do NOT stop to report progress to the user. Do NOT ask the human what to do next. The human may be asleep.**
+
+**After EACH subagent completes, you MUST immediately launch the NEXT subagent for the next incomplete feature. The ONLY acceptable reasons to stop are:**
+1. **ALL features have `"passes": true`**
+2. **A truly unrecoverable error** (hardware failure, missing credentials that cannot be worked around)
+
+**Stopping to "report back" or "check in" with the user is a VIOLATION of this workflow. The user explicitly chose autonomous execution. KEEP GOING.**
 
 ### Session Startup Sequence
 
@@ -281,7 +289,7 @@ The subagent handles implementation, testing, screenshot verification, and commi
    - Consistent with other pages in the app
 5. If quality is poor, launch a **polish subagent** to fix visual issues before moving on.
 6. If the subagent failed to complete, launch another subagent to fix and finish.
-7. **Loop back** — pick the next incomplete feature and repeat.
+7. **Loop back IMMEDIATELY** — pick the next incomplete feature and launch a new subagent RIGHT NOW. Do NOT stop, do NOT report to the user, do NOT wait for instructions. KEEP GOING until ALL features pass.
 
 ### Decision Making Guidelines
 
@@ -386,12 +394,16 @@ Examples:
 - No debug code or console.logs left in
 - Codebase in clean, working state
 
-### Autonomous Operation
+### Autonomous Operation (NON-NEGOTIABLE)
 - NEVER stop to ask the human a question
 - NEVER wait for human approval
+- NEVER stop to "report progress" or "check in" — the user can see commits in git log
+- NEVER output a summary and wait — immediately launch the next subagent
+- After each subagent completes: verify → launch next subagent. That's it. No pausing.
 - Make reasonable decisions based on existing patterns
 - If blocked, try alternative approaches before giving up
 - Keep working until ALL features are complete
+- The continue workflow is a LOOP, not a single step. You are the loop controller.
 
 ---
 
