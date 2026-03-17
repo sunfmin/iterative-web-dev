@@ -78,7 +78,18 @@ project-root/
    ln -sf specs/auth/feature_list.json feature_list.json
    ```
 
-4. **Create feature list** from spec — see `references/feature-list-format.md`
+4. **Create feature list** — choose the right method:
+
+   **If scope references a constitution / standards document** (e.g., "align with AGENTS.md", "refactor to follow standards"):
+   Use the **Constitution Audit Workflow** from `references/constitution-audit.md`. This is a multi-subagent process:
+   - Split the reference document into sections (~200 lines each)
+   - Launch parallel subagents to extract EVERY requirement from each section (read actual text, not summaries)
+   - Launch parallel subagents to verify each requirement against the actual codebase
+   - Generate features ONLY from verified violations
+   - This is NON-NEGOTIABLE for compliance scopes — ad-hoc auditing misses requirements
+
+   **If scope is new feature development** (e.g., "build a PIM system", "add auth"):
+   Use the standard process from `references/feature-list-format.md`
 
 5. **Create/update init.sh** — see `references/init-script-template.md`
 
@@ -464,3 +475,4 @@ For detailed templates and examples, see:
 - `references/e2e-verification.md` — E2E screenshot evaluation criteria and Playwright setup
 - `references/ux-standards.md` — UX quality standards and checklist
 - `references/frontend-design.md` — Design principles from /frontend-design skill
+- `references/constitution-audit.md` — Systematic audit workflow for compliance/alignment scopes
